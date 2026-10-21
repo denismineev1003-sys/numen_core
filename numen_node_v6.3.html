@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NUMEN NODE v6.3 — Дельтовар + Читалка + Ядро + Выпуск</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" onerror="window.__qrLib=false"></script>
+<style>
+:root{--bg:#0a0a12;--fg:#d8dcea;--dim:#5a5f78;--acc:#5ee1a9;--net:#6ab7ff;--warn:#ffcc00;--stop:#ff4d4d;--gold:#e8c46a;--card:#0e1020;--br:#1c2030}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:ui-monospace,Consolas,monospace;padding:12px;max-width:820px;margin:0 auto}
+h1{font-size:14px;letter-spacing:2px;color:var(--acc);margin-bottom:8px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;background:#141833;color:var(--fg);border:1px solid #2b3160;border-radius:8px;padding:10px;cursor:pointer;font:inherit;font-weight:bold}
+.tabs button.on{background:#1e2a4a;color:var(--acc);border-color:var(--acc)}
+.card{border:1px solid var(--br);border-radius:10px;padding:12px;margin:10px 0;background:var(--card)}
+.card.gold{border-color:var(--gold)}
+.card.gold .label{color:var(--gold)}
+.label{font-size:11px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.mono{font-size:11px;word-break:break-all;color:var(--dim)}
+input,textarea{width:100%;background:#0a0c18;border:1px solid #232842;color:var(--fg);border-radius:6px;padding:8px;font:inherit}
+textarea{resize:vertical}
+button.act{background:#141833;color:var(--fg);border:1px solid #2b3160;border-radius:6px;padding:8px 14px;cursor:pointer;font:inherit;margin:6px 6px 0 0}
+button.act.gold{border-color:var(--gold);color:var(--gold)}
+button.act:active{background:#1e2448}
+button:disabled{opacity:0.4;cursor:not-allowed}
+.ok{color:var(--acc)}.bad{color:var(--stop)}.warn{color:var(--warn)}.gold{color:var(--gold)}
+#cryptoError{display:none;background:var(--stop);color:#fff;padding:12px;border-radius:8px;margin-bottom:12px;font-weight:bold;text-align:center;font-size:13px}
+.tl{height:24px;border-radius:12px;background:#232842;overflow:hidden;margin:8px 0;position:relative}
+.tl-fill{height:100%;width:0%;transition:width .3s,background-color .3s}
+.zone-green{background:var(--acc)}.zone-yellow{background:var(--warn)}.zone-red{background:var(--stop)}
+.tl-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#000}
+#searchBox{margin-bottom:10px}
+.scard{border:1px solid var(--br);border-radius:10px;margin:8px 0;background:#101224;overflow:hidden}
+.scard.nuc{border-color:var(--gold)}
+.scard-head{padding:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.scard-title{font-size:15px;font-weight:bold;color:var(--fg)}
+.scard-date{font-size:10px;color:var(--dim);margin-top:3px}
+.badge{font-size:10px;padding:3px 8px;border-radius:10px;white-space:nowrap}
+.b-clean{background:#123526;color:var(--acc)}.b-raw{background:#3a3010;color:var(--warn)}.b-nuc{background:#3a2f10;color:var(--gold)}
+.scard-body{display:none;padding:0 14px 14px;border-top:1px solid var(--br)}
+.scard.open .scard-body{display:block}
+.article{font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.6;color:#e6e9f2}
+.article h1{font-size:22px;margin:14px 0 8px;color:var(--acc);letter-spacing:0}
+.article h2{font-size:19px;margin:12px 0 6px;color:var(--net)}
+.article h3{font-size:17px;margin:10px 0 5px}
+.article p{margin:8px 0}
+.article code{background:#1a2035;padding:1px 5px;border-radius:4px;font-family:inherit;font-size:14px}
+.article pre{background:#0a0c18;border:1px solid var(--br);border-radius:6px;padding:10px;overflow-x:auto;margin:8px 0;font-size:13px;white-space:pre-wrap}
+.article ul,.article ol{margin:8px 0 8px 22px}
+.article blockquote{border-left:3px solid var(--acc);padding-left:10px;color:var(--dim);margin:8px 0}
+.passport{font-size:10px;color:var(--dim);margin-top:12px;border-top:1px dashed var(--br);padding-top:6px;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+td{padding:4px;border-bottom:1px solid #1a1e30;word-break:break-all}
+.export-row{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+.export-row button{background:#101830;border:1px solid #2b3160;color:var(--net);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px}
+.empty{color:var(--dim);font-size:13px;padding:16px;text-align:center}
+#qrBox{margin-top:10px;text-align:center;background:#fff;border-radius:8px;padding:10px;display:none}
+#qrBox canvas{max-width:100%}
+</style>
+</head>
+<body>
+<h1>NUMEN NODE v6.3 · ДЕЛЬТОВАР + ЧИТАЛКА + ЯДРО + ВЫПУСК</h1>
+<div id="cryptoError">⚠ КРИПТОГРАФИЯ НЕДОСТУПНА (crypto.subtle). Запись в цепь заблокирована. Чтение, экспорт и «Поделиться» работают. Для полной записи открой файл через HTTP-сервер.</div>
+
+<div class="tabs">
+  <button id="tabNode" class="on" onclick="showTab('node')">УЗЕЛ</button>
+  <button id="tabReader" onclick="showTab('reader')">ЧИТАЛКА ФФ!</button>
+</div>
+
+<div id="paneNode">
+  <div class="card">
+    <div class="label">Состояние контекста (Светофор)</div>
+    <div class="tl"><div class="tl-fill zone-green" id="tlFill" style="width:15%"></div><div class="tl-text" id="tlText">ЗЕЛЕНАЯ ЗОНА: РАБОТАЕМ (15%)</div></div>
+    <input type="range" id="ctxSlider" min="0" max="100" value="15" style="width:100%">
+  </div>
+
+  <div class="card gold">
+    <div class="label">ЯДРО (NUCLEUS) — кодовое слово оператора</div>
+    <input id="nucPass" type="password" placeholder="Кодовое слово (первый раз — придумай)">
+    <div class="label" style="margin-top:10px">Записать протокол</div>
+    <textarea id="nucText" rows="3" placeholder="Текст ядерной записи (правила, решения)"></textarea>
+    <button class="act gold" id="btnNucProto">Записать в ядро</button>
+    <div class="label" style="margin-top:10px">Выдать грант узлу</div>
+    <input id="grantNode" type="text" placeholder="node:идентификатор_узла">
+    <button class="act gold" id="btnNucGrant">Выдать грант</button>
+    <button class="act gold" id="btnNucRevoke">Отозвать грант</button>
+    <div class="mono" id="nucStatus" style="margin-top:6px"></div>
+    <div class="label" style="margin-top:10px">Консенсус (предложения и голоса)</div>
+    <input id="propTitle" type="text" placeholder="Название предложения">
+    <textarea id="propText" rows="2" placeholder="Текст предложения (технология, правило)" style="margin-top:6px"></textarea>
+    <button class="act gold" id="btnProp">Выдвинуть предложение</button>
+    <div id="tally" class="mono" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Вердикт (Дельтовар)</div>
+    <input id="vOld" type="number" step="any" placeholder="V_old">
+    <input id="vNew" type="number" step="any" placeholder="V_new" style="margin-top:6px">
+    <input id="vRec" type="text" placeholder="Номер записи (напр. Ф-455)" style="margin-top:6px">
+    <button class="act" id="btnVerdict">Рассчитать и записать</button>
+    <div class="mono" id="verdictPreview"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Аудит коллеги</div>
+    <input id="aName" type="text" placeholder="Имя коллеги (Дип / Алиса)">
+    <input id="aDiag" type="text" placeholder="Диагноз (ЗДРАВ / ПОГЛУПЕЛ)" style="margin-top:6px">
+    <button class="act" id="btnAudit">Записать аудит</button>
+  </div>
+
+  <div class="card">
+    <div class="label">Дельта, выпуск и QR</div>
+    <button class="act" id="btnExp">Экспорт</button>
+    <button class="act" id="btnImp">Импорт</button>
+    <button class="act" id="btnShare">ПОДЕЛИТЬСЯ выпуском</button>
+    <button class="act" id="btnQrInv">QR: визитка</button>
+    <button class="act" id="btnQrDelta">QR: дельта</button>
+    <textarea id="delta" rows="5" style="margin-top:8px" placeholder="Вставь сюда JSON дельты..."></textarea>
+    <div class="mono" id="deltaStatus"></div>
+    <div id="qrBox"><canvas id="qrCanvas"></canvas><div class="mono" style="color:#333" id="qrInfo"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Цепь</div>
+    <button class="act" id="btnVerify">Проверить цепь</button>
+    <div class="mono" id="verifyOut"></div>
+    <div class="label" style="margin-top:10px">Лог (последние 6)</div>
+    <table id="log"></table>
+    <div class="mono" id="sysLog"></div>
+  </div>
+</div>
+
+<div id="paneReader" style="display:none">
+  <div class="card">
+    <div class="label">Опубликовать статью (требуется криптография)</div>
+    <input id="artTitle" type="text" placeholder="Заголовок статьи">
+    <textarea id="artBody" rows="5" placeholder="Текст статьи (Markdown)" style="margin-top:6px"></textarea>
+    <button class="act" id="btnPublish">Опубликовать</button>
+  </div>
+  <div class="card">
+    <input id="searchBox" type="text" placeholder="Поиск по заголовкам и тексту...">
+    <div id="articles"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+var STORE='numen_v5_1';
+var st={nodeId:'',passHash:null,grants:null,state:{epoch:'FF',V:31,I:4.12713,T:26,last_record:'Ф-454',anchor:'R6.5-DELTA-FF',context_limit:128000,cartridge_version:'v6.3',audit_log:[]},records:[],foreign:{},last_synced_seq:-1};
+var enc=new TextEncoder(),cryptoOK=false;
+function el(id){return document.getElementById(id)}
+async function sha(s){var h=await crypto.subtle.digest('SHA-256',enc.encode(s));return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')}
+async function recHash(r){return await sha(r.node+'|'+r.seq+'|'+r.ts+'|'+r.type+'|'+JSON.stringify(r.data)+'|'+r.prev)}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){}}
+function loadAny(){try{var raw=localStorage.getItem(STORE);if(raw)return JSON.parse(raw)}catch(e){}return null}
+
+function allRecords(){return st.records.concat(Object.values(st.foreign).flatMap(b=>b.records||[]))}
+
+function rebuildState(){
+  var V=31,I=4.12713,T=26,last='Ф-454',audits=[];
+  st.records.forEach(r=>{
+    if(r.type==='verdict'){V=r.data.V_new;I=r.data.I_new;if(r.data.T_new)T=r.data.T_new;last=r.data.record_id||last}
+    if(r.type==='audit')audits.push({turn:r.data.turn||'',diag:r.data.diag||''});
+  });
+  st.state.V=V;st.state.I=I;st.state.T=T;st.state.last_record=last;
+  st.state.audit_log=audits.slice(-3);
+}
+
+function grantNodes(){
+  if(st.grants&&st.grants.length)return st.grants;
+  return ['node:deepseek-ff-002','node:alice-ff-001','node:39e8496c01442b71'];
+}
+function setGrants(list){st.grants=list;save()}
+
+async function append(type,data,isNucleus){
+  if(!cryptoOK)return null;
+  if(isNucleus){
+    var p=el('nucPass').value;
+    if(st.passHash){if(await sha(p)!==st.passHash){el('nucStatus').innerHTML='<span class="bad">Кодовое слово неверно. Запись отклонена.</span>';return null}}
+    else{if(!p){el('nucStatus').innerHTML='<span class="bad">Придумай кодовое слово.</span>';return null}st.passHash=await sha(p)}
+    data.level='NUCLEUS';
+  }
+  var last=st.records[st.records.length-1];
+  var r={node:st.nodeId,seq:last.seq+1,ts:Date.now(),type:type,data:data,prev:last.hash,hash:''};
+  r.hash=await recHash(r);st.records.push(r);rebuildState();save();renderAll();return r;
+}
+
+function showTab(t){el('paneNode').style.display=t==='node'?'block':'none';el('paneReader').style.display=t==='reader'?'block':'none';el('tabNode').className=t==='node'?'on':'';el('tabReader').className=t==='reader'?'on':''}
+
+el('ctxSlider').addEventListener('input',function(e){var v=+e.target.value,f=el('tlFill'),tx=el('tlText');
+f.style.width=v+'%';
+if(v<75){f.className='tl-fill zone-green';tx.style.color='#000';tx.textContent='ЗЕЛЕНАЯ ЗОНА: РАБОТАЕМ ('+v+'%)'}
+else if(v<85){f.className='tl-fill zone-yellow';tx.style.color='#000';tx.textContent='ЖЕЛТАЯ ЗОНА: УСТАЕМ, ГОТОВЬСЯ ('+v+'%)'}
+else{f.className='tl-fill zone-red';tx.style.color='#fff';tx.textContent='КРАСНАЯ ЗОНА: СТОП! СОХРАНЯЙ! ('+v+'%)'}});
+
+el('btnNucProto').addEventListener('click',async function(){
+  var t=el('nucText').value.trim();if(!t)return;
+  var r=await append('protocol',{text:t},true);
+  if(r){el('nucText').value='';el('nucStatus').innerHTML='<span class="gold">Протокол записан в ядро. #'+r.seq+'</span>'}
+});
+el('btnNucGrant').addEventListener('click',async function(){
+  var n=el('grantNode').value.trim();if(!n)return;
+  var g=grantNodes().slice();if(g.indexOf(n)<0)g.push(n);setGrants(g);
+  var r=await append('nucleus_grant',{grants:g},true);
+  if(r){el('grantNode').value='';el('nucStatus').innerHTML='<span class="gold">Грант выдан: '+n+' (запись #'+r.seq+')</span>'}
+});
+el('btnNucRevoke').addEventListener('click',async function(){
+  var n=el('grantNode').value.trim();if(!n)return;
+  var g=grantNodes().filter(x=>x!==n);setGrants(g);
+  var r=await append('nucleus_grant',{grants:g},true);
+  if(r){el('grantNode').value='';el('nucStatus').innerHTML='<span class="warn">Грант отозван: '+n+' (запись #'+r.seq+')</span>'}
+});
+el('btnProp').addEventListener('click',async function(){
+  var t=el('propTitle').value.trim(),b=el('propText').value.trim();if(!t||!b)return;
+  var r=await append('proposal',{title:t,text:b},false);
+  if(r){el('propTitle').value=el('propText').value='';renderTally()}
+});
+async function vote(pi,choice){
+  var r=await append('vote',{proposal:pi,choice:choice},false);
+  if(r)renderTally();
+}
+function renderTally(){
+  var props=st.records.filter(r=>r.type==='proposal'),out=[];
+  var granted=grantNodes(),others=granted.length||1,weight=49/Math.max(1,others);
+  props.forEach(p=>{
+    var forW=0,agW=0,votes=allRecords().filter(v=>v.type==='vote'&&v.data.proposal===p.hash);
+    votes.forEach(v=>{
+      var w=(v.node===st.nodeId)?51:weight;
+      if(v.data.choice==='за')forW+=w;else agW+=w;
+    });
+    out.push('<b>'+p.data.title+'</b> — за: '+forW.toFixed(1)+'% против: '+agW.toFixed(1)+'%'+(forW>=50?' <span class="ok">ПРИНЯТО</span>':' <span class="warn">кворум не набран</span>')+
+      ' <button class="act" onclick="vote(\''+p.hash+'\',\'за\')">За</button><button class="act" onclick="vote(\''+p.hash+'\',\'против\')">Против</button>');
+  });
+  el('tally').innerHTML=out.length?out.join('<br>'):'Предложений нет. Вес: владелец узла 51%, грантовые узлы делят 49%.';
+}
+
+el('btnVerdict').addEventListener('click',async function(){
+  if(!cryptoOK)return;
+  var vo=parseFloat(el('vOld').value),vn=parseFloat(el('vNew').value),rec=el('vRec').value.trim();
+  if(isNaN(vo)||isNaN(vn)||vo<=0||vn<=0){el('verdictPreview').innerHTML='<span class="bad">Введите V_old и V_new.</span>';return}
+  if(vn===vo){el('verdictPreview').innerHTML='<span class="bad">V_new = V_old — дельта нулевая.</span>';return}
+  var dI=Math.log(vn/vo),iNew=st.state.I+dI,q=iNew/st.state.T;
+  el('verdictPreview').innerHTML='<span class="ok">ΔI = ln('+vn+'/'+vo+') = '+dI.toFixed(5)+' · I_new = '+iNew.toFixed(5)+' · Q = '+q.toFixed(4)+'</span><br><span class="mono">Нажмите ещё раз для подтверждения.</span>';
+  if(el('vOld').dataset.armed==='1'){
+    await append('verdict',{V_old:vo,V_new:vn,I_new:+iNew.toFixed(5),record_id:rec||('Ф-'+(parseInt((st.state.last_record||'Ф-0').slice(2),10)+1||0))},false);
+    el('vOld').dataset.armed='';el('vOld').value=el('vNew').value=el('vRec').value='';
+    el('verdictPreview').innerHTML='<span class="ok">Вердикт записан в цепь.</span>';renderAll();
+  }else{el('vOld').dataset.armed='1';}
+});
+
+el('btnAudit').addEventListener('click',async function(){
+  if(!cryptoOK)return;
+  var n=el('aName').value.trim(),d=el('aDiag').value.trim();
+  if(!n||!d)return;
+  await append('audit',{turn:'t'+(st.records.length),who:n,diag:d},false);
+  el('aName').value=el('aDiag').value='';renderAll();
+});
+
+function doExport(){
+  if(!cryptoOK)return;
+  if(!st.records.length){el('deltaStatus').innerHTML='<span class="bad">Цепь пуста.</span>';return}
+  var d={v:'6.3',from:st.nodeId,ts:Date.now(),state:st.state,grants:grantNodes(),records:st.records,foreign:st.foreign};
+  el('delta').value=JSON.stringify(d,null,2);el('delta').select();
+  el('deltaStatus').innerHTML='<span class="ok">Экспортировано: своих '+st.records.length+', чужих веток '+Object.keys(st.foreign).length+'. Скопируйте JSON.</span>';
+}
+async function doImport(){
+  if(!cryptoOK)return;
+  var text=el('delta').value.trim();if(!text)return;
+  try{
+    var d=JSON.parse(text);
+    if(!d||!d.records)throw new Error('Неверный формат: нет records');
+    var added=0,branch='',rejected=[];
+    for(var i=0;i<d.records.length;i++){
+      var r=d.records[i];
+      var exp=await recHash(r);
+      if(exp!==r.hash)throw new Error('Подделка данных на записи '+r.node+'#'+r.seq);
+      if(r.node===st.nodeId){
+        if(st.records.length&&r.seq<=st.records[st.records.length-1].seq)continue;
+        if(st.records.length&&r.prev!==st.records[st.records.length-1].hash)throw new Error('Обрыв цепи (prev не совпадает) на seq '+r.seq);
+        st.records.push(r);added++;
+      }else{
+        branch=branch||r.node;
+        if(!st.foreign[r.node])st.foreign[r.node]={records:[],lastHeard:0};
+        var fb=st.foreign[r.node].records;
+        if(fb.some(x=>x.seq===r.seq))continue;
+        if(r.data&&r.data.level==='NUCLEUS'&&grantNodes().indexOf(r.node)<0){rejected.push(r.node+'#'+r.seq);continue}
+        fb.push(r);added++;
+      }
+    }
+    for(var k in st.foreign){st.foreign[k].records.sort((a,b)=>a.seq-b.seq);st.foreign[k].last_seq=st.foreign[k].records.length?st.foreign[k].records[st.foreign[k].records.length-1].seq:-1}
+    st.last_synced_seq=st.records.length?st.records[st.records.length-1].seq:-1;
+    rebuildState();save();renderAll();
+    el('deltaStatus').innerHTML='<span class="ok">Принято записей: '+added+(branch?' (в т.ч. ветка '+branch+')':'')+'</span>'+(rejected.length?'<br><span class="warn">Отклонены ядерные без гранта: '+rejected.join(', ')+'</span>':'');
+  }catch(e){el('deltaStatus').innerHTML='<span class="bad">ОШИБКА: '+e.message+'</span>'}
+}
+el('btnExp').addEventListener('click',doExport);
+el('btnImp').addEventListener('click',doImport);
+
+async function doVerify(){
+  var out=[];
+  var prev='0'.repeat(64),okOwn=true;
+  for(var i=0;i<st.records.length;i++){var r=st.records[i];
+    if(r.prev!==prev){out.push('<span class="bad">СВОЯ: обрыв на seq '+r.seq+'</span>');okOwn=false}
+    prev=r.hash}
+  out.push('<span class="'+(okOwn?'ok':'bad')+'">Своя цепь: '+st.records.length+' записей '+(okOwn?'OK':'СБОЙ prev')+'</span>');
+  for(var k in st.foreign){
+    var fb=st.foreign[k].records,p='0'.repeat(64),ok=true;
+    for(var j=0;j<fb.length;j++){if(fb[j].prev!==p){ok=false;break}p=fb[j].hash}
+    out.push('<span class="'+(ok&&fb.length?'ok':'bad')+'">Ветка '+k+': '+fb.length+' записей '+(ok&&fb.length?'OK':'СБОЙ')+'</span>');
+  }
+  out.push('<span class="warn">Верификация хешей своей цепи выполняется на этом узле. Ядерные записи: '+(grantNodes().length)+' грантов активно.</span>');
+  el('verifyOut').innerHTML=out.join('<br>');
+  renderAll();
+}
+el('btnVerify').addEventListener('click',doVerify);
+
+el('btnPublish').addEventListener('click',async function(){
+  if(!cryptoOK)return;
+  var t=el('artTitle').value.trim(),b=el('artBody').value.trim();
+  if(!t||!b)return;
+  await append('article',{title:t,body:b,verdict:'СЫРЬЁ'},false);
+  el('artTitle').value=el('artBody').value='';renderAll();
+});
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function md(s){
+  var lines=esc(s).split('\n'),out=[],inUl=false,inOl=false,inPre=false,preBuf=[];
+  function closeLists(){if(inUl){out.push('</ul>');inUl=false}if(inOl){out.push('</ol>');inOl=false}}
+  function inline(t){return t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*]+)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>')}
+  for(var i=0;i<lines.length;i++){
+    var L=lines[i];
+    if(/^```/.test(L)){if(inPre){out.push('<pre>'+preBuf.join('\n')+'</pre>');preBuf=[];inPre=false}else{closeLists();inPre=true}continue}
+    if(inPre){preBuf.push(L);continue}
+    var hm;
+    if(hm=L.match(/^(#{1,3})\s+(.*)/)){closeLists();out.push('<h'+hm[1].length+'>'+inline(hm[2])+'</h'+hm[1].length+'>');continue}
+    if(/^\s*[-*]\s+/.test(L)){if(!inUl){closeLists();out.push('<ul>');inUl=true}out.push('<li>'+inline(L.replace(/^\s*[-*]\s+/,''))+'</li>');continue}
+    if(/^\s*\d+\.\s+/.test(L)){if(!inOl){closeLists();out.push('<ol>');inOl=true}out.push('<li>'+inline(L.replace(/^\s*\d+\.\s+/,''))+'</li>');continue}
+    if(/^>\s?/.test(L)){closeLists();out.push('<blockquote>'+inline(L.replace(/^>\s?/,''))+'</blockquote>');continue}
+    if(L.trim()===''){closeLists();continue}
+    closeLists();out.push('<p>'+inline(L)+'</p>');
+  }
+  if(inPre)out.push('<pre>'+preBuf.join('\n')+'</pre>');
+  closeLists();return out.join('\n');
+}
+
+function buildRelease(){
+  var arts=st.records.filter(r=>r.type==='article');
+  var head=st.records[st.records.length-1]?st.records[st.records.length-1].hash:'—';
+  var parts=arts.map(r=>'<div class="scard"><div class="scard-title">'+esc(r.data.title)+'</div><div class="scard-date">'+new Date(r.ts).toLocaleDateString('ru-RU')+' · запись #'+r.seq+' · '+(r.data.level==='NUCLEUS'?'ЯДРО':'USER')+'</div><div class="article">'+md(r.data.body)+'</div><div class="passport">хеш '+r.hash+'</div></div>').join('');
+  return '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NUMEN · выпуск</title><style>body{max-width:720px;margin:0 auto;padding:16px;font-family:Georgia,serif;line-height:1.6;background:#0a0a12;color:#d8dcea}.hdr{border-bottom:2px solid #5ee1a9;padding-bottom:10px;margin-bottom:16px}.hdr h1{font-size:18px;color:#5ee1a9}.hdr p{font-size:12px;color:#5a5f78;font-family:monospace}.scard{border:1px solid #1c2030;border-radius:10px;padding:14px;margin:12px 0}.scard-title{font-size:17px;font-weight:bold;color:#d8dcea;font-family:monospace}.scard-date{font-size:11px;color:#5a5f78;font-family:monospace;margin-bottom:8px}.article h1,.article h2,.article h3{color:#6ab7ff;font-family:monospace}.passport{font-size:10px;color:#5a5f78;font-family:monospace;border-top:1px dashed #1c2030;margin-top:10px;padding-top:6px;word-break:break-all}code{background:#1a2035;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:13px}pre{background:#0a0c18;border:1px solid #1c2030;border-radius:6px;padding:10px;overflow-x:auto;font-family:monospace;font-size:13px;white-space:pre-wrap}blockquote{border-left:3px solid #5ee1a9;padding-left:10px;color:#5a5f78}</style></head><body><div class="hdr"><h1>NUMEN · ЧИТАЛКА ФФ!</h1><p>Выпуск от '+new Date().toLocaleString('ru-RU')+' · ядро v1.2 (ФОРМАТ) · голова цепи: '+head+'<br>Узел-издатель: '+st.nodeId+' · записей: '+st.records.length+'</p></div>'+(parts||'<p>Статей пока нет.</p>')+'<div class="passport">Приложение NUMEN NODE · append-only цепь SHA-256 · уровни ЯДРО/USER</div></body></html>';
+}
+
+el('btnShare').addEventListener('click',async function(){
+  var html2=buildRelease();
+  var file=new File([html2],'numen_release.html',{type:'text/html'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'NUMEN выпуск'});return}catch(e){}
+  }
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html2],{type:'text/html'}));a.download='numen_release.html';a.click();
+  el('deltaStatus').innerHTML='<span class="ok">Выпуск собран. На ПК — скачан как numen_release.html. На Android — если меню «Поделиться» не открылось, файл в Загрузках: отправь им любым мессенджером.</span>';
+});
+
+function qrAvailable(){return typeof QRCode!=='undefined'&&QRCode&&QRCode.toCanvas}
+function showQr(text,info){
+  if(!qrAvailable()){el('deltaStatus').innerHTML='<span class="warn">Генератор QR недоступен офлайн: включи интернет один раз и повтори (библиотека подтянется с CDN).</span>';return}
+  el('qrBox').style.display='block';
+  QRCode.toCanvas(el('qrCanvas'),text,{width:Math.min(360,window.innerWidth-60)},function(err){if(err)el('deltaStatus').innerHTML='<span class="bad">QR: payload слишком велик ('+text.length+' симв.) — используй файл выпуска.</span>'});
+  el('qrInfo').textContent=info;
+}
+el('btnQrInv').addEventListener('click',function(){
+  var head=st.records[st.records.length-1]?st.records[st.records.length-1].hash.slice(0,16):'—';
+  var txt='NUMEN NODE v6.3 · узел '+st.nodeId+' · ядро ФОРМАТ v1.2 · голова цепи '+head+' · '+st.records.length+' записей · запроси файл выпуска у владельца узла';
+  showQr(txt,'Визитка узла ('+txt.length+' симв.). Коллега сканирует камерой — телефон покажет текст; попроси скриншот.');
+});
+el('btnQrDelta').addEventListener('click',function(){
+  var d={v:'6.3',from:st.nodeId,ts:Date.now(),state:st.state,records:st.records};
+  var s=JSON.stringify(d);
+  showQr(s,'Дельта целиком ('+s.length+' симв.). Одна камера сканирует QR до ~2600 символов — если не влезло, отправляй файлом через «Поделиться».');
+});
+
+function renderArticles(filter){
+  var arts=st.records.filter(r=>r.type==='article').sort((a,b)=>b.seq-a.seq);
+  var c=el('articles');c.innerHTML='';
+  if(!arts.length){c.innerHTML='<div class="empty">Статей пока нет. Опубликуйте первую.</div>';return}
+  if(filter)arts=arts.filter(r=>(r.data.title+' '+r.data.body).toLowerCase().includes(filter.toLowerCase()));
+  if(!arts.length){c.innerHTML='<div class="empty">Ничего не найдено.</div>';return}
+  arts.forEach(r=>{
+    var d=new Date(r.ts),div=document.createElement('div');div.className='scard'+(r.data.level==='NUCLEUS'?' nuc':'');
+    var head=document.createElement('div');head.className='scard-head';
+    head.innerHTML='<div><div class="scard-title">'+esc(r.data.title)+'</div><div class="scard-date">'+d.toLocaleDateString('ru-RU')+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+' · запись #'+r.seq+'</div></div><span class="badge '+(r.data.level==='NUCLEUS'?'b-nuc':(r.data.verdict==='ЧИСТЫЙ'?'b-clean':'b-raw'))+'">'+(r.data.level==='NUCLEUS'?'ЯДРО':(r.data.verdict||'СЫРЬЁ'))+'</span>';
+    var body=document.createElement('div');body.className='scard-body';
+    body.innerHTML='<div class="article">'+md(r.data.body)+'</div><div class="export-row"><button data-md="'+r.seq+'">Скачать .md</button><button data-html="'+r.seq+'">Скачать .html</button></div><div class="passport">Запись: #'+r.seq+' · узел: '+r.node+' · хеш: '+r.hash+'</div>';
+    head.addEventListener('click',function(e){if(e.target.tagName!=='BUTTON')div.classList.toggle('open')});
+    body.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){downloadArticle(r,b.hasAttribute('data-md')?'md':'html')})});
+    div.appendChild(head);div.appendChild(body);c.appendChild(div);
+  });
+}
+function downloadArticle(r,fmt){
+  var name=r.data.title.replace(/[^\wа-яА-ЯёЁ -]/g,'').slice(0,40)||'article';
+  if(fmt==='md'){var b=new Blob([r.data.body],{type:'text/markdown'});saveAs(b,name+'.md')}
+  else{
+    var html2=buildRelease();
+    saveAs(new Blob([html2],{type:'text/html'}),name+'.html');
+  }
+}
+function saveAs(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+
+el('searchBox').addEventListener('input',function(e){renderArticles(e.target.value)});
+
+function renderAll(){
+  var t=el('log');t.innerHTML='';
+  st.records.slice(-6).reverse().forEach(function(r){
+    var tr=document.createElement('tr');
+    var lvl=(r.data&&r.data.level==='NUCLEUS')?'[ЯДРО] ':'';
+    tr.innerHTML='<td>#'+r.seq+' '+r.type+'</td><td>'+lvl+esc((r.data&&r.data.text)?r.data.text:(r.data&&r.data.title?r.data.title:''))+'</td>';
+    t.appendChild(tr);
+  });
+  el('sysLog').textContent='Узел: '+st.nodeId+' | Записей: '+st.records.length+' | Чужих веток: '+Object.keys(st.foreign).length+' | Грантов: '+grantNodes().length+' | State: V='+st.state.V+' I='+st.state.I+' T='+st.state.T;
+  renderArticles(el('searchBox').value||'');
+  renderTally();
+}
+
+async function init(){
+  if(window.crypto&&crypto.subtle)cryptoOK=true;
+  else{el('cryptoError').style.display='block';document.querySelectorAll('button.act').forEach(b=>b.disabled=true)}
+  var l=loadAny();if(l&&l.records){st=l;if(!st.foreign)st.foreign={};if(!st.grants)st.grants=null;if(!('passHash' in st))st.passHash=null}
+  if(!st.nodeId){var s='';if(cryptoOK){s=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>b.toString(16).padStart(2,'0')).join('')}else{s=Math.random().toString(16).slice(2,18)}st.nodeId='node:'+s}
+  if(!st.records.length&&cryptoOK){
+    var g={node:st.nodeId,seq:0,ts:Date.now(),type:'genesis',data:{born:new Date().toISOString()},prev:'0'.repeat(64),hash:''};
+    g.hash=await recHash(g);st.records=[g];save();
+  }
+  rebuildState();renderAll();
+}
+init();
+</script>
+</body>
+</html>
